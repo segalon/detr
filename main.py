@@ -16,6 +16,9 @@ from datasets import build_dataset, get_coco_api_from_dataset
 from engine import evaluate, train_one_epoch
 from models import build_model
 
+import sys
+
+
 
 def get_args_parser():
     parser = argparse.ArgumentParser('Set transformer detector', add_help=False)
@@ -102,6 +105,36 @@ def get_args_parser():
     return parser
 
 
+def load_pretrained(new_model, freeze=False):
+    #path_pre = "./pretrained_models/detr_pre.pth"
+    model_pre = torch.hub.load('facebookresearch/detr', 'detr_resnet50', pretrained=True)
+
+    new_model_params = new_model.state_dict()
+
+    if len(model_pre.state_dict()) != len(new_model_params):
+        print("ERROR: pretrained and not-trained model don't have the same architecture")
+        sys.exit()
+
+    # copy the parameters of the encoder and the backbone
+
+    for name, param in model_pre.named_parameters():
+        if "encoder" in name or "backbone" in name:
+            new_model_params[name] = param
+            print("Copied:", name)
+
+    new_model.load_state_dict(new_model_params)
+    if freeze:
+        for name, param in new_model.named_parameters():
+            if "encoder" in name or "backbone" in name:
+                param.requires_grad = False
+
+
+    print("loaded the encoder and backbone from pretrained model")
+
+    return
+
+
+
 def main(args):
     utils.init_distributed_mode(args)
     print("git:\n  {}\n".format(utils.get_sha()))
@@ -119,6 +152,9 @@ def main(args):
     random.seed(seed)
 
     model, criterion, postprocessors = build_model(args)
+
+    load_pretrained(model, freeze=True)
+
     model.to(device)
 
     model_without_ddp = model
