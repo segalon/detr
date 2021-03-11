@@ -16,13 +16,15 @@ from datasets import build_dataset, get_coco_api_from_dataset
 from engine import evaluate, train_one_epoch
 from models import build_model
 
+from proj_utils import cls_ops
+
 import sys
 
 
 
 def get_args_parser():
     parser = argparse.ArgumentParser('Set transformer detector', add_help=False)
-    parser.add_argument('--lr', default=1e-4, type=float)
+    parser.add_argument('--lr', default=4*1e-4, type=float)
     parser.add_argument('--lr_backbone', default=1e-5, type=float)
     parser.add_argument('--batch_size', default=2, type=int)
     parser.add_argument('--weight_decay', default=1e-4, type=float)
@@ -120,7 +122,7 @@ def load_pretrained(new_model, freeze=False):
     for name, param in model_pre.named_parameters():
         if "encoder" in name or "backbone" in name:
             new_model_params[name] = param
-            print("Copied:", name)
+            #print("Copied:", name)
 
     new_model.load_state_dict(new_model_params)
     if freeze:
@@ -218,8 +220,11 @@ def main(args):
             args.start_epoch = checkpoint['epoch'] + 1
 
     if args.eval:
-        test_stats, coco_evaluator = evaluate(model, criterion, postprocessors,
-                                              data_loader_val, base_ds, device, args.output_dir)
+        cls_ops.cls_eval(model, criterion, data_loader_val, base_ds, device, "")
+        print("evaluated classes")
+
+        # test_stats, coco_evaluator = evaluate(model, criterion, postprocessors,
+        #                                       data_loader_val, base_ds, device, args.output_dir)
         if args.output_dir:
             utils.save_on_master(coco_evaluator.coco_eval["bbox"].eval, output_dir / "eval.pth")
         return
